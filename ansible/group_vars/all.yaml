@@ -1,0 +1,4 @@
+---
+packge_install_list:
+  - common
+    - wget

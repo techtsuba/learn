@@ -1,0 +1,13 @@
+---
+- name: Setup
+  hosts: all
+  become: yes
+  gather_facts: no
+
+  tasks:
+  - name: Install the latest version of wget
+    ansible.builtin.dnf:
+      name: "{{ item }}"
+      state: present
+      with_item:
+        {{ packge_install_list.common }}
