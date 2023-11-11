@@ -7,7 +7,7 @@
   tasks:
   - name: Install the latest version of wget
     ansible.builtin.dnf:
-      name: "{{ item }}"
+      name:
+        - wget
       state: present
-      with_item:
-        {{ packge_install_list.common }}
+  
