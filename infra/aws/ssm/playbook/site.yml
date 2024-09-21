@@ -1,0 +1,25 @@
+---
+- name: Install httpd
+  hosts: all
+  gather_facts: true
+  become: true
+  environment:
+    pass_word: "{{ himitsu }}"
+
+  tasks:
+#    - name: Show facts
+#      ansible.builtin.debug:
+#        var: ansible_facts
+
+    - name: include role
+      ansible.builtin.include_role:
+        name: httpd
+
+#    - name: dencrypte password
+#      ansible.builtin.include_role:
+#        name: password_decrypt
+
+    - name: debug
+      ansible.builtin.debug:
+        msg: "{{ himitsu }}"
+  

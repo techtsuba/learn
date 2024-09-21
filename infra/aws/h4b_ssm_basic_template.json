@@ -1,0 +1,169 @@
+{
+  
+  "AWSTemplateFormatVersion" : "2010-09-09",
+
+  "Description" : "This template is for 'AWS Hands-on for Beginners Systems Manager Hands-on'.",
+
+  "Parameters" : {
+  
+    "VPCCidr" : {
+      "Type" : "String",
+      "Default" : "10.0.0.0/16",
+      "Description" : "VPCCidr"
+    },
+    "PublicSubnetCidr" : {
+      "Type" : "String",
+      "Default" : "10.0.0.0/24",
+      "Description" : "PublicSubnetCidr"
+    },
+    "PrivateSubnetCidr" : {
+      "Type" : "String",
+      "Default" : "10.0.1.0/24",
+      "Description" : "PrivateSubnetCidr"
+    }
+  },
+  "Resources" : {
+    "VPC" : {
+      "Type" : "AWS::EC2::VPC",
+      "Properties" : {
+        "CidrBlock" : { "Ref" : "VPCCidr"},
+        "EnableDnsSupport" : true,
+        "EnableDnsHostnames" : true,
+        "Tags" : [ {"Key" : "Name", "Value" : "h4b-vpc" } ]
+      }
+    },
+    "PublicSubnet" : {
+      "Type" : "AWS::EC2::Subnet",
+      "Properties" : {
+        "VpcId" : { "Ref" : "VPC" },
+        "CidrBlock" : { "Ref" : "PublicSubnetCidr"},
+        "AvailabilityZone" : { "Fn::Select" : [ "0", { "Fn::GetAZs" : { "Ref" : "AWS::Region" }}]},
+        "MapPublicIpOnLaunch" : true,
+        "Tags" : [ {"Key" : "Name", "Value" : "h4b-public-subnet" } ]
+      }
+    },
+    
+    "PrivateSubnet" : {
+      "Type" : "AWS::EC2::Subnet",
+      "Properties" : {
+        "VpcId" : { "Ref" : "VPC" },
+        "CidrBlock" : { "Ref" : "PrivateSubnetCidr"},
+        "AvailabilityZone" : { "Fn::Select" : [ "1", { "Fn::GetAZs" : { "Ref" : "AWS::Region" }}]},
+        "Tags" : [ {"Key" : "Name", "Value" : "h4b-private-subnet" } ]
+      }
+    },
+    
+    "EIP" : {
+      "Type" : "AWS::EC2::EIP",
+      "Properties" : {
+        "Tags" : [ {"Key" : "Name", "Value" : "h4b-eip" } ]
+      }
+    },
+    
+    "InternetGateway" : {
+      "Type" : "AWS::EC2::InternetGateway",
+      "Properties" : {
+        "Tags" : [ {"Key" : "Name", "Value" : "h4b-igw" } ]
+      }
+    },
+
+    "AttachGateway" : {
+       "Type" : "AWS::EC2::VPCGatewayAttachment",
+       "Properties" : {
+         "VpcId" : { "Ref" : "VPC" },
+         "InternetGatewayId" : { "Ref" : "InternetGateway" }
+       }
+    },
+    
+    "NATGateway" : {
+      "Type" : "AWS::EC2::NatGateway",
+      "Properties" : {
+        "AllocationId" : { "Fn::GetAtt" : [ "EIP" , "AllocationId"] },
+        "ConnectivityType" : "public",
+        "SubnetId" : { "Ref" : "PublicSubnet" }
+      }
+    },
+
+    "RouteTableforPublic" : {
+      "Type" : "AWS::EC2::RouteTable",
+      "Properties" : {
+        "VpcId" : {"Ref" : "VPC"},
+        "Tags" : [ {"Key" : "Name", "Value" : "h4b-public-route-table" } ]
+      }
+    },
+    
+    "RouteTableforPrivate" : {
+      "Type" : "AWS::EC2::RouteTable",
+      "Properties" : {
+        "VpcId" : {"Ref" : "VPC"},
+        "Tags" : [ {"Key" : "Name", "Value" : "h4b-private-route-table" } ]
+      }
+    },
+    
+    "RouteForPublic" : {
+      "Type" : "AWS::EC2::Route",
+      "DependsOn" : "AttachGateway",
+      "Properties" : {
+        "RouteTableId" : { "Ref" : "RouteTableforPublic" },
+        "DestinationCidrBlock" : "0.0.0.0/0",
+        "GatewayId" : { "Ref" : "InternetGateway" }
+      }
+    },
+
+    "RouteForPrivate" : {
+      "Type" : "AWS::EC2::Route",
+      "DependsOn" : "NATGateway",
+      "Properties" : {
+        "RouteTableId" : { "Ref" : "RouteTableforPrivate" },
+        "DestinationCidrBlock" : "0.0.0.0/0",
+        "NatGatewayId" : { "Ref" : "NATGateway" }
+      }
+    },
+
+    "SubnetRouteTableAssociation1" : {
+      "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties" : {
+        "SubnetId" : { "Ref" : "PublicSubnet" },
+        "RouteTableId" : { "Ref" : "RouteTableforPublic" }
+      }
+    },
+      
+    "SubnetRouteTableAssociation2" : {
+      "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties" : {
+        "SubnetId" : { "Ref" : "PrivateSubnet" },
+        "RouteTableId" : { "Ref" : "RouteTableforPrivate" }
+      }
+    },
+
+    "EC2SecurityGroup" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "VpcId" : { "Ref" : "VPC" },
+        "GroupDescription" : "No Inbound Rule Security Group",
+        "GroupName" : "h4b-ec2-sg",
+        "Tags" : [ {"Key" : "Name", "Value" : "h4b-ec2-sg" } ]
+      }
+    },
+    "EC2": {
+      "Type": "AWS::EC2::Instance",
+      "Properties": {
+        "ImageId": "ami-033050a99b0cf28b4",
+        "InstanceType": "t2.micro",
+        "KeyName": "h4b-key",
+        "SecurityGroupIds": [ { "Ref" : "EC2SecurityGroup" } ],
+        "SubnetId": { "Ref" : "PrivateSubnet" },
+        "Tags" : [ {"Key" : "Name", "Value" : "h4b-ec21" } ],
+        "UserData" : {
+          "Fn::Base64" : { "Fn::Join" : ["", [
+            "#!/bin/bash\n",
+            "cd /tmp\n",
+            "sudo dnf install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm\n",
+            "sudo systemctl enable amazon-ssm-agent\n",
+            "sudo systemctl start amazon-ssm-agent\n"
+          ]]}
+        }
+      }
+    }
+  }
+}
